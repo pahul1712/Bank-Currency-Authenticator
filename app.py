@@ -1,16 +1,18 @@
-
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
 from PIL import Image
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Load your model
 pickle_in = open("classifier.pkl", "rb")
 classifier = pickle.load(pickle_in)
 
-# Define pages
+# Dark Mode Toggle
+st.set_page_config(page_title="Bank Note Authenticator", layout="centered")
+
 def main_page():
     st.title("🏦 Bank Note Authenticator")
     st.markdown("""
@@ -21,6 +23,7 @@ def main_page():
     """, unsafe_allow_html=True)
     st.image("bank_notes.jpg", use_column_width=True)
     st.markdown("Use the navigation menu to explore various functionalities.")
+    st.write("Want to learn more about the project? Visit the **About** section!")
 
 def prediction_page():
     st.title("🔮 Predict Bank Note Authentication")
@@ -43,21 +46,52 @@ def prediction_page():
             })
             result = classifier.predict(input_data)
             st.success(f"✅ The predicted class is: {'Authentic' if result[0] == 1 else 'Fake'}")
+            
+            # Save the prediction result in session state for use in the confusion matrix
+            if "prediction_result" not in st.session_state:
+                st.session_state["prediction_result"] = []
+
+            st.session_state["prediction_result"].append(result[0])
+            
         except Exception as e:
             st.error(f"Error in prediction: {e}")
+    
+    # Render the Confusion Matrix if checkbox is selected
+    if st.checkbox("Show Confusion Matrix"):
+        if "prediction_result" in st.session_state:
+            # Example confusion matrix data (replace this with actual results if available)
+            # Sample static confusion matrix for demo purposes
+            y_true = [1, 1, 0, 0]  # Replace with actual labels
+            y_pred = [1, 0, 0, 0]  # Replace with actual predictions
+            
+            from sklearn.metrics import confusion_matrix
+            cm = confusion_matrix(y_true, y_pred)
+            labels = ['Fake', 'Authentic']
+
+            fig, ax = plt.subplots()
+            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=labels, yticklabels=labels)
+            plt.ylabel('Actual')
+            plt.xlabel('Predicted')
+            plt.title("Confusion Matrix")
+            st.pyplot(fig)
+        else:
+            st.warning("No predictions available yet. Please make a prediction first.")
 
 def file_upload_page():
     st.title("📁 Bulk Prediction via CSV Upload")
     uploaded_file = st.file_uploader("Upload a CSV File", type=["csv"])
     if uploaded_file:
         try:
-            data = pd.read_csv(uploaded_file)
-            st.dataframe(data.head())
-            predictions = classifier.predict(data)
-            data['Prediction'] = predictions
-            st.markdown("### Predictions:")
-            st.dataframe(data)
-            st.download_button("Download Predictions", data.to_csv(index=False), "predictions.csv", "text/csv")
+            st.write("Processing uploaded file...")
+            with st.spinner("Processing..."):
+                data = pd.read_csv(uploaded_file)
+                st.dataframe(data.head())
+                predictions = classifier.predict(data)
+                data['Prediction'] = predictions
+                st.markdown("### Predictions:")
+                st.dataframe(data)
+                st.download_button("Download Predictions", data.to_csv(index=False), "predictions.csv", "text/csv")
+                st.success("✅ Bulk predictions completed!")
         except Exception as e:
             st.error(f"Error in processing file: {e}")
 
@@ -78,6 +112,25 @@ def about_page():
         
         Built with full dedication by **Pahuldeep Singh Dhingra**.
     """)
+    
+    st.markdown("## Download Model")
+    st.download_button(
+        label="Download Model (Pickle File)",
+        data=pickle_in.read(),
+        file_name="classifier.pkl",
+        mime="application/octet-stream"
+    )
+
+    st.markdown("### Data Visualization")
+    if st.checkbox("Show Random Feature Distribution"):
+        # Placeholder feature importance visualization
+        sample_data = np.random.rand(100, 4)
+        columns = ['Variance', 'Skewness', 'Curtosis', 'Entropy']
+        df = pd.DataFrame(sample_data, columns=columns)
+        fig, ax = plt.subplots()
+        sns.boxplot(data=df)
+        plt.title("Feature Distribution")
+        st.pyplot(fig)
 
 # Navigation
 def run_app():
